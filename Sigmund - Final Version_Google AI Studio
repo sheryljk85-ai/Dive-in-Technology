@@ -1,0 +1,166 @@
+import React, { useState, useMemo } from 'react';
+import { FileUpload } from './components/FileUpload';
+import { CommentCard } from './components/CommentCard';
+import { StatsOverview } from './components/StatsOverview';
+import { analyzeScreenshot } from './services/geminiService';
+import { CommentData, AnalysisSummary, Sentiment } from './types';
+import { Sparkles, BrainCircuit, RotateCcw } from 'lucide-react';
+
+export default function App() {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [comments, setComments] = useState<CommentData[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const summary: AnalysisSummary | null = useMemo(() => {
+    if (!comments || comments.length === 0) return null;
+
+    const total = comments.length;
+    const positive = comments.filter(c => c.sentiment === Sentiment.POSITIVE).length;
+    const negative = comments.filter(c => c.sentiment === Sentiment.NEGATIVE).length;
+    const neutral = comments.filter(c => c.sentiment === Sentiment.NEUTRAL).length;
+
+    let overallSentiment = "Neutral";
+    if (positive > negative && positive > neutral) overallSentiment = "Predominantly Positive";
+    else if (negative > positive && negative > neutral) overallSentiment = "Predominantly Negative";
+    else if (neutral > positive && neutral > negative) overallSentiment = "Mostly Neutral";
+    else if (positive === negative && positive > 0) overallSentiment = "Mixed";
+
+    return { total, positive, negative, neutral, overallSentiment };
+  }, [comments]);
+
+  const handleFileSelect = async (file: File) => {
+    setIsAnalyzing(true);
+    setError(null);
+    setComments(null);
+
+    // Create preview
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreview(objectUrl);
+
+    try {
+      const result = await analyzeScreenshot(file);
+      setComments(result);
+    } catch (err: any) {
+      console.error(err);
+      setError("Failed to analyze image. Please ensure you are uploading a clear screenshot of comments and try again.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleReset = () => {
+    setComments(null);
+    setImagePreview(null);
+    setError(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-600 p-1.5 rounded-lg">
+              <BrainCircuit className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+              Sigmund
+            </h1>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-slate-500">
+            <span className="hidden sm:inline">Sentiment Analysis Assistant</span>
+            <a href="#" className="hover:text-indigo-600 transition-colors">Documentation</a>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Intro Section (only show if no comments and no loading) */}
+        {!comments && !isAnalyzing && !imagePreview && (
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium mb-4">
+              <Sparkles className="w-4 h-4" />
+              <span>Powered by Gemini 2.5 Flash</span>
+            </div>
+            <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">
+              Understand the emotions behind the comments
+            </h2>
+            <p className="text-lg text-slate-600">
+              Upload a screenshot of your Instagram comments to get instant sentiment classification, 
+              sarcasm detection, and community vibe checks.
+            </p>
+          </div>
+        )}
+
+        {/* Upload Area */}
+        {!comments && (
+          <div className="mb-12">
+            <FileUpload onFileSelect={handleFileSelect} isAnalyzing={isAnalyzing} />
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 text-center max-w-xl mx-auto">
+                {error}
+              </div>
+            )}
+            
+            {/* Image Preview during loading */}
+            {imagePreview && isAnalyzing && (
+              <div className="mt-8 max-w-sm mx-auto opacity-50 blur-[1px] transition-all duration-700">
+                <img src={imagePreview} alt="Uploading..." className="rounded-lg shadow-lg border border-slate-200" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Results Dashboard */}
+        {comments && summary && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Analysis Results</h2>
+                <p className="text-slate-500">Analyzed {summary.total} comments from your screenshot</p>
+              </div>
+              <button 
+                onClick={handleReset}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Analyze Another
+              </button>
+            </div>
+
+            <StatsOverview summary={summary} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Comment List */}
+              <div className="lg:col-span-2 space-y-4">
+                <h3 className="font-semibold text-slate-900 text-lg flex items-center gap-2">
+                  Detailed Breakdown
+                </h3>
+                {comments.map((comment) => (
+                  <CommentCard key={comment.id} comment={comment} />
+                ))}
+              </div>
+
+              {/* Sidebar / Original Image Context */}
+              <div className="lg:col-span-1">
+                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm sticky top-24">
+                   <h3 className="font-semibold text-slate-900 mb-4">Source Image</h3>
+                   {imagePreview && (
+                     <div className="rounded-lg overflow-hidden border border-slate-100">
+                       <img src={imagePreview} alt="Original screenshot" className="w-full h-auto object-contain bg-slate-100" />
+                     </div>
+                   )}
+                   <div className="mt-4 p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
+                      <p className="font-medium mb-1">About Sigmund</p>
+                      Sigmund uses advanced AI to interpret nuances like slang ("fire", "mid"), emojis, and sarcasm that traditional filters miss.
+                   </div>
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
