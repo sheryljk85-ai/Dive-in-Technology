@@ -1,0 +1,216 @@
+{
+  "name": "Sigmund - Instagram Sentiment Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sigmund-analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d0862794-d8c2-4ee5-b3df-4e8d4c86d451",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -16
+      ],
+      "webhookId": "sigmund-sentiment-analysis"
+    },
+    {
+      "parameters": {},
+      "id": "7ca5ab33-ddbe-4f99-8eb6-adc90aae6967",
+      "name": "Extract Post ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.instagram.com/p/{{ $json.post_id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          }
+        }
+      },
+      "id": "878ef67c-97dd-44c3-8c6d-0e894e6ef432",
+      "name": "Fetch Instagram Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -272,
+        -16
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nySwpHp9wjWYg0KT",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "68a52d3c-94ab-4c09-ac9d-2859ce0333a8",
+      "name": "Parse Comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -16
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "0f586091-e5e7-45c8-a430-c5f0860b05c6",
+      "name": "Sentiment Analysis Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -16
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "33a22f2d-3204-411f-9726-936cb449e120",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "07838e6a-f538-4975-8ba1-a846de0c1d3d",
+      "name": "Return Analysis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        608,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.error || 'Analysis failed', message: $json.message || 'An error occurred during sentiment analysis' }, null, 2) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "e253ed98-db71-4bd4-8e6c-dbc9a1f77441",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        608,
+        192
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Post ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Post ID": {
+      "main": [
+        [
+          {
+            "node": "Fetch Instagram Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Instagram Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Comments": {
+      "main": [
+        [
+          {
+            "node": "Sentiment Analysis Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sentiment Analysis Engine": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Return Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c53c932a-8809-43e6-b804-53127554d97c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bab84250a9fd1d3df640c120932f7419bed1693bf9fed1753ac46699c1ebb6d5"
+  },
+  "id": "8QIKZnItCftXjzZ5",
+  "tags": []
+}
